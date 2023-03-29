@@ -1,10 +1,9 @@
 use hyprland::data::{Monitors, Workspaces};
-use hyprland::event_listener::{EventListenerMutable as EventListener};
+use hyprland::event_listener::EventListenerMutable as EventListener;
 use hyprland::shared::{HResult, HyprData};
 use std::env;
 use serde::Serialize;
 use serde_json::json;
-use std::sync::Arc;
 
 const HELP: &str = "\
 hyprland-workspaces: a multi monitor aware hyprland workspaces json widget generator for eww/waybar.
@@ -27,64 +26,45 @@ struct WorkspaceCustom {
     pub class: String,
 }
 
-#[derive(Clone)]
-struct WorkspacesWidget {
-    pub monitor: String,
-}
+fn output(monitor: &str) {
+    // get all workspaces
+    let mut workspaces: Vec<_> = Workspaces::get().expect("unable to get workspaces").into_iter().collect();
+    workspaces.sort_by_key(|w| w.id);
 
-impl WorkspacesWidget {
-    fn new(monitor: &str) -> Self {
-        Self { 
-            monitor: monitor.to_owned(),       
-        }
-    }
+    //get active workspace
+    let active_workspace_name = Monitors::get()
+        .expect("unable to get monitors")
+        .find(|m| m.name == monitor)
+        .unwrap()
+        .active_workspace
+        .name;
+    //active monitor name
+    let active_monitor_name = Monitors::get()
+        .expect("unable to get monitors")
+        .find(|m| m.focused == true)
+        .unwrap()
+        .name;
 
-    fn output(&self) {
-        // get all workspaces
-        let mut workspaces: Vec<_> = Workspaces::get().expect("unable to get workspaces").into_iter().collect();
-        workspaces.sort_by_key(|w| w.id);
-    
-        //get active workspace
-        let active_workspace = Monitors::get()
-            .expect("unable to get monitors")
-            .find(|m| m.name == self.monitor)
-            .unwrap()
-            .active_workspace;
-        //active monitor name
-        let active_monitor_name = Monitors::get()
-            .expect("unable to get monitors")
-            .find(|m| m.focused == true)
-            .unwrap()
-            .name;
-    
-        let mut out_workspaces: Vec<WorkspaceCustom> = Vec::new();
-    
-        for workspace in workspaces.iter() {
-            if workspace.monitor == self.monitor {
-                let mut active = false;
-                let mut class = format!("workspace-button w{}",workspace.id);
-                if active_workspace.name == workspace.name && active_monitor_name == self.monitor {
-                    class = format!("{} workspace-active wa{}", class, workspace.id);
-                    active = true;
-                }
+    let mut out_workspaces: Vec<WorkspaceCustom> = Vec::new();
 
-                let ws: WorkspaceCustom = WorkspaceCustom {
-                    name: workspace.name.clone(),
-                    id: workspace.id,
-                    active: active,
-                    class: class,
-                };
-                out_workspaces.push(ws);
-    
+    for workspace in workspaces.iter().filter(|m| m.monitor == monitor) {
+            let mut active = false;
+            let mut class = format!("workspace-button w{}",workspace.id);
+            if active_workspace_name == workspace.name && active_monitor_name == monitor {
+                class = format!("{} workspace-active wa{}", class, workspace.id);
+                active = true;
             }
-        }
-        println!("{}", json!(out_workspaces).to_string());
-        
+
+            let ws: WorkspaceCustom = WorkspaceCustom {
+                name: workspace.name.clone(),
+                id: workspace.id,
+                active,
+                class,
+            };
+            out_workspaces.push(ws);
     }
-
+    println!("{}", json!(out_workspaces).to_string());
 }
-
-
 
 
 fn main() -> HResult<()> {
@@ -94,56 +74,47 @@ fn main() -> HResult<()> {
         println!("{HELP}");
         std::process::exit(0);
     }
-    let monitor = args[1].to_string();
-    let workspace_widget = Arc::new(WorkspacesWidget::new(&monitor));
 
-    workspace_widget.output();
+    macro_rules! output {
+        () => {
+            output(&env::args().nth(1).unwrap());
+        };
+    }
+    output!();
     // Create a event listener
     let mut event_listener = EventListener::new();
-    
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_workspace_change_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_workspace_change_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_workspace_added_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_workspace_added_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_workspace_destroy_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_workspace_destroy_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_workspace_moved_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_workspace_moved_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_monitor_added_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_monitor_added_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_monitor_removed_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_monitor_removed_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_window_close_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_window_close_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_window_open_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_window_open_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_active_monitor_change_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_active_monitor_change_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_active_window_change_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_active_window_change_handler(|_, _| {
+        output!();
     });
-    let ww_clone = Arc::clone(&workspace_widget);
-    event_listener.add_window_close_handler(move |_, _| {
-        ww_clone.output();
+    event_listener.add_window_close_handler(|_, _| {
+        output!();
     });
 
     event_listener.start_listener()
