@@ -1,12 +1,11 @@
 [package]
 name = "hyprland-workspaces"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hyprland = { git = "https://github.com/hyprland-community/hyprland-rs.git" }
+hyprland = "0.3.1"
 serde_json = "1.0"
 serde = "1.0"
-

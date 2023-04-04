@@ -1,6 +1,7 @@
 use hyprland::data::{Monitors, Workspaces};
 use hyprland::event_listener::EventListenerMutable as EventListener;
-use hyprland::shared::{HResult, HyprData};
+use hyprland::shared::HyprData;
+use hyprland::Result;
 use std::env;
 use serde::Serialize;
 use serde_json::json;
@@ -67,7 +68,7 @@ fn output(monitor: &str) {
 }
 
 
-fn main() -> HResult<()> {
+fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     //check args
     if args.len() != 2 || args[1].eq("-h") || args[1].eq("--help") {
