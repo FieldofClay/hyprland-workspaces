@@ -117,6 +117,12 @@ fn main() -> Result<()> {
     event_listener.add_window_close_handler(|_, _| {
         output!();
     });
+    event_listener.add_fullscreen_state_change_handler(|_, _| {
+        output!();
+    });
+    event_listener.add_window_moved_handler(|_, _| {
+        output!();
+    });
 
     event_listener.start_listener()
     
