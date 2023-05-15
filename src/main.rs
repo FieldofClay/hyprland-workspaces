@@ -75,6 +75,13 @@ fn main() -> Result<()> {
         println!("{HELP}");
         std::process::exit(0);
     }
+    let mon = env::args().nth(1).unwrap();
+    if let None = Monitors::get()
+        .expect("unable to get monitors")
+        .find(|m| m.name == mon) {
+            println!("Unable to find monitor {mon}");
+            std::process::exit(0);
+    }
 
     macro_rules! output {
         () => {
