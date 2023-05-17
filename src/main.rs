@@ -1,6 +1,7 @@
-use hyprland::data::{Monitors, Workspaces};
+use hyprland::data::{Monitors, Workspace, Workspaces};
 use hyprland::event_listener::EventListenerMutable as EventListener;
 use hyprland::shared::HyprData;
+use hyprland::shared::HyprDataActive;
 use hyprland::Result;
 use std::env;
 use serde::Serialize;
@@ -33,12 +34,17 @@ fn output(monitor: &str) {
     workspaces.sort_by_key(|w| w.id);
 
     //get active workspace
-    let active_workspace_name = Monitors::get()
-        .expect("unable to get monitors")
-        .find(|m| m.name == monitor)
-        .unwrap()
-        .active_workspace
-        .name;
+    let mut active_workspace_name = String::new();
+    if monitor == "_" {
+        active_workspace_name = Workspace::get_active().expect("unable to get active workspace").name;
+    } else {
+        active_workspace_name = Monitors::get()
+            .expect("unable to get monitors")
+            .find(|m| m.name == monitor)
+            .unwrap()
+            .active_workspace
+            .name;
+    }
     //active monitor name
     let active_monitor_name = Monitors::get()
         .expect("unable to get monitors")
@@ -48,7 +54,7 @@ fn output(monitor: &str) {
 
     let mut out_workspaces: Vec<WorkspaceCustom> = Vec::new();
 
-    for workspace in workspaces.iter().filter(|m| m.monitor == monitor) {
+    for workspace in workspaces.iter().filter(|m| m.monitor == monitor || monitor == "_") {
             let mut active = false;
             let mut class = format!("workspace-button w{}",workspace.id);
             if active_workspace_name == workspace.name && active_monitor_name == monitor {
@@ -78,7 +84,7 @@ fn main() -> Result<()> {
     let mon = env::args().nth(1).unwrap();
     if let None = Monitors::get()
         .expect("unable to get monitors")
-        .find(|m| m.name == mon) {
+        .find(|m| m.name == mon || mon == "_") {
             println!("Unable to find monitor {mon}");
             std::process::exit(0);
     }

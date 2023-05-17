@@ -21,7 +21,11 @@ Pass the name of the monitor to follow as the only argument.
 ```
 ./hyprland-workspaces eDP-1
 ```
-It will then follow that monitor and output the workspaces details in JSON stdout.
+If you wish to get all workspaces across all monitors, pass the special argument "_".
+```
+./hyprland-workspaces _
+```
+It will then follow that monitor(s) and output the workspaces details in JSON to stdout.
 ```json
 [{"active":false,"class":"workspace-button w1","id":1,"name":"1: "},{"active":false,"class":"workspace-button w2","id":2,"name":"2: "},{"active":true,"class":"workspace-button w4 workspace-active wa4","id":4,"name":"4: "}]
 ```
@@ -33,6 +37,7 @@ hyprctl monitors -j
 It can be used as a workspaces widget in Eww with config similar to below.
 ```yuck
 (deflisten workspace0 "hyprland-workspaces `hyprctl monitors -j | jq -r \".[0].name\"`")
+(deflisten workspace1 "hyprland-workspaces `hyprctl monitors -j | jq -r \".[1].name\"`")
 
 (defwidget workspaces0 []
   (eventbox :onscroll "hyprctl dispatch workspace `echo {} | sed 's/up/+/\' | sed 's/down/-/'`1"
@@ -41,7 +46,26 @@ It can be used as a workspaces widget in Eww with config similar to below.
         (button
           :onclick "hyprctl dispatch workspace ${i.id}"
           :class "${i.class}"
-          "${replace(i.name, ':', '')}")))))
+          "${i.name}")))))
+(defwidget workspaces1 []
+  (eventbox :onscroll "hyprctl dispatch workspace `echo {} | sed 's/up/+/\' | sed 's/down/-/'`1"
+    (box :class "workspaces"
+      (for i in workspace1
+        (button
+          :onclick "hyprctl dispatch workspace ${i.id}"
+          :class "${i.class}"
+          "${i.name}")))))
+
+(defwindow bar0 []
+  :monitor 0
+  (box 
+    (workspaces0)
+    (other_widget)))
+(defwindow bar1 []
+  :monitor 1
+  (box
+    (workspaces1)
+    (other_widget)))
 ```
 
 The following classes are output, to provide multiple options for theming your workspaces widget.
