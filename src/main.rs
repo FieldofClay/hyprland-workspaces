@@ -34,7 +34,7 @@ fn output(monitor: &str) {
     workspaces.sort_by_key(|w| w.id);
 
     //get active workspace
-    let mut active_workspace_id = -499;
+    let mut active_workspace_id: i32;
     if monitor == "_" {
         active_workspace_id = Workspace::get_active().expect("unable to get active workspace").id;
     } else {
@@ -57,7 +57,7 @@ fn output(monitor: &str) {
     for workspace in workspaces.iter().filter(|m| m.monitor == monitor || monitor == "_") {
             let mut active = false;
             let mut class = format!("workspace-button w{}",workspace.id);
-            if active_workspace_id == workspace.id && active_monitor_name == monitor {
+            if active_workspace_id == workspace.id && (active_monitor_name == monitor || monitor == "_") {
                 class = format!("{} workspace-active wa{}", class, workspace.id);
                 active = true;
             }
