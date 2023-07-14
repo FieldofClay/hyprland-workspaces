@@ -17,7 +17,7 @@ FLAGS:
   -h, --help            Prints help information
 
 ARGS:
-  <MONITOR>             Monitor to track windows/workspaces on
+  <MONITOR>             Monitor to track windows/workspaces on or _ to track all monitors
 ";
 
 #[derive(Serialize)]
@@ -34,7 +34,7 @@ fn output(monitor: &str) {
     workspaces.sort_by_key(|w| w.id);
 
     //get active workspace
-    let mut active_workspace_id: i32;
+    let active_workspace_id: i32;
     if monitor == "_" {
         active_workspace_id = Workspace::get_active().expect("unable to get active workspace").id;
     } else {
@@ -134,6 +134,18 @@ fn main() -> Result<()> {
         output!();
     });
     event_listener.add_window_moved_handler(|_, _| {
+        output!();
+    });
+    event_listener.add_layer_open_handler(|_, _| {
+        output!();
+     });
+    event_listener.add_layer_closed_handler(|_, _| {
+        output!();
+     });
+    event_listener.add_urgent_state_handler(|_, _| {
+        output!();
+    });
+    event_listener.add_window_title_change_handler(|_, _| {
         output!();
     });
 
