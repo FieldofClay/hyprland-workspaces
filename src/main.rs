@@ -148,9 +148,6 @@ fn main() -> Result<()> {
     event_listener.add_window_title_change_handler(|_, _| {
         output!();
     });
-    event_listener.add_window_title_change_handler(|_, _| {
-        output!();
-    });
 
     event_listener.start_listener()
     
