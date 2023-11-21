@@ -11,13 +11,13 @@ const HELP: &str = "\
 hyprland-workspaces: a multi monitor aware hyprland workspaces json widget generator for eww/waybar.
 
 USAGE:
-    hyprland-workspaces MONITOR
+  hyprland-workspaces MONITOR
 
 FLAGS:
-    -h, --help            Prints help information
+  -h, --help            Prints help information
 
 ARGS:
-    <MONITOR>             Monitor to track windows/workspaces on or _ to track all monitors
+  <MONITOR>             Monitor to track windows/workspaces on or _ to track all monitors
 ";
 
 #[derive(Serialize)]
