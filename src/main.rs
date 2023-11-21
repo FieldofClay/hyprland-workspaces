@@ -59,15 +59,15 @@ fn output(monitor: &str) {
             let mut active = false;
             let mut class = format!("workspace-button w{}",workspace.id);
             if active_workspace_id == workspace.id && (active_monitor_name == monitor || monitor == "_") {
-            class = format!("{} workspace-active wa{}", class, workspace.id);
-            active = true;
+                class = format!("{} workspace-active wa{}", class, workspace.id);
+                active = true;
             }
 
             let ws: WorkspaceCustom = WorkspaceCustom {
-            name: workspace.name.clone(),
-            id: workspace.id,
-            active,
-            class,
+                name: workspace.name.clone(),
+                id: workspace.id,
+                active,
+                class,
             };
             out_workspaces.push(ws);
         }
