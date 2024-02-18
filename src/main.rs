@@ -1,15 +1,16 @@
+use flexi_logger::{FileSpec, Logger};
 use hyprland::data::{Monitors, Workspace, Workspaces};
 use hyprland::event_listener::EventListenerMutable as EventListener;
-use hyprland::shared::{HyprData,HyprError};
-use hyprland::shared::HyprDataActive;
+use hyprland::shared::{HyprData, HyprDataActive, HyprError};
 use hyprland::Result;
-use std::env;
+use log;
 use serde::Serialize;
 use serde_json::json;
+use std::env;
 use std::sync::Arc;
 
 const HELP: &str = "\
-hyprland-workspaces: a multi monitor aware hyprland workspaces json widget generator for eww/waybar.
+hyprland-workspaces: a multi monitor aware hyprland workspaces json widget generator for eww.
 
 USAGE:
   hyprland-workspaces MONITOR
@@ -33,14 +34,12 @@ struct WorkspaceCustom {
 #[derive(Serialize)]
 struct MonitorCustom {
     pub name: String,
-    pub workspaces: Vec<WorkspaceCustom>
+    pub workspaces: Vec<WorkspaceCustom>,
 }
 
-fn get_workspace_windows(monitor: &str)-> Result<Vec<WorkspaceCustom>>  {
+fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
     // get all workspaces
-    let mut workspaces: Vec<_> = Workspaces::get()?
-        .into_iter()
-        .collect();
+    let mut workspaces: Vec<_> = Workspaces::get()?.into_iter().collect();
     workspaces.sort_by_key(|w| w.id);
 
     //get active workspace
@@ -51,6 +50,7 @@ fn get_workspace_windows(monitor: &str)-> Result<Vec<WorkspaceCustom>>  {
         active_workspace_id = Monitors::get()?
             .find(|m| m.name == monitor)
             .ok_or_else(|| {
+                log::error!("No monitor found with name: {}", monitor);
                 HyprError::NotOkDispatch("No monitor found".to_string())
             })?
             .active_workspace
@@ -60,31 +60,37 @@ fn get_workspace_windows(monitor: &str)-> Result<Vec<WorkspaceCustom>>  {
     let active_monitor_name = Monitors::get()?
         .find(|m| m.focused == true)
         .ok_or_else(|| {
+            log::error!("No active monitor found.");
             HyprError::NotOkDispatch("No active monitor found".to_string())
         })?
         .name;
     let mut out_workspaces: Vec<WorkspaceCustom> = Vec::new();
 
-    for workspace in workspaces.iter().filter(|m| m.monitor == monitor || monitor == "ALL" || monitor == "_") {
-            let mut active = false;
-            let mut class = format!("workspace-button w{}",workspace.id);
-            if active_workspace_id == workspace.id && (active_monitor_name == monitor || monitor == "ALL") {
-                class = format!("{} workspace-active wa{}", class, workspace.id);
-                active = true;
-            }
+    for workspace in workspaces
+        .iter()
+        .filter(|m| m.monitor == monitor || monitor == "ALL" || monitor == "_")
+    {
+        let mut active = false;
+        let mut class = format!("workspace-button w{}", workspace.id);
+        if active_workspace_id == workspace.id
+            && (active_monitor_name == monitor || monitor == "ALL")
+        {
+            class = format!("{} workspace-active wa{}", class, workspace.id);
+            active = true;
+        }
 
-            let ws: WorkspaceCustom = WorkspaceCustom {
-                name: workspace.name.clone(),
-                id: workspace.id,
-                active,
-                class,
-            };
-            out_workspaces.push(ws);
+        let ws: WorkspaceCustom = WorkspaceCustom {
+            name: workspace.name.clone(),
+            id: workspace.id,
+            active,
+            class,
+        };
+        out_workspaces.push(ws);
     }
     return Ok(out_workspaces);
 }
 
-fn get_all_advanced()-> Result<Vec<MonitorCustom>>  {
+fn get_all_advanced() -> Result<Vec<MonitorCustom>> {
     let monitors = Monitors::get()?;
     let mut out_monitors: Vec<MonitorCustom> = Vec::new();
     for m in monitors {
@@ -98,15 +104,27 @@ fn get_all_advanced()-> Result<Vec<MonitorCustom>>  {
     Ok(out_monitors)
 }
 
-
 fn output(monitor: &str) {
     if monitor == "_" {
-        println!("{}", json!(get_all_advanced().unwrap_or_default()).to_string());
+        println!(
+            "{}",
+            json!(get_all_advanced().unwrap_or_else(|err| {
+                log::error!("Advanced get failed: {}", err);
+                Vec::new()
+            }))
+            .to_string()
+        );
     } else {
-        println!("{}", json!(get_workspace_windows(monitor).unwrap_or_default()).to_string());
+        println!(
+            "{}",
+            json!(get_workspace_windows(monitor).unwrap_or_else(|err| {
+                log::error!("Basic get failed: {}", err);
+                Vec::new()
+            }))
+            .to_string()
+        );
     }
 }
-
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -115,13 +133,37 @@ fn main() -> Result<()> {
         println!("{HELP}");
         std::process::exit(0);
     }
+    let _logger = match Logger::try_with_str("info") {
+        Ok(logger) => {
+            match logger
+                .log_to_file(
+                    FileSpec::default()
+                        .directory("/tmp")
+                        .basename("hyprland-workspaces"),
+                )
+                .start()
+            {
+                Ok(logger) => logger,
+                Err(e) => {
+                    println!("Unable to start logger: {}", e);
+                    std::process::exit(1)
+                }
+            };
+        }
+        Err(e) => {
+            println!("Unable to initialise logger: {}", e);
+            std::process::exit(1)
+        }
+    };
     let mon = Arc::new(String::from(args[1].to_string()));
     if let None = Monitors::get()?
-        .find(|m| m.name == mon.to_string() || mon.to_string() == "ALL" || mon.to_string() == "_") {
-            println!("Unable to find monitor {mon}");
-            std::process::exit(0);
+        .find(|m| m.name == mon.to_string() || mon.to_string() == "ALL" || mon.to_string() == "_")
+    {
+        log::error!("Unable to find monitor {mon}");
+        std::process::exit(0);
     }
 
+    log::info!("Started with arg {}", mon);
     output(&mon);
     // Create a event listener
     let mut event_listener = EventListener::new();
@@ -195,5 +237,4 @@ fn main() -> Result<()> {
     });
 
     event_listener.start_listener()
-    
 }
