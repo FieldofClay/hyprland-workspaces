@@ -17,13 +17,14 @@ cargo build --release
 ```
 
 ## Usage
+### Basic Usage
 Pass the name of the monitor to follow as the only argument. 
 ```
 ./hyprland-workspaces eDP-1
 ```
-If you wish to get all workspaces across all monitors, pass the special argument "_".
+If you wish to get all workspaces across all monitors, pass the special argument "ALL".
 ```
-./hyprland-workspaces _
+./hyprland-workspaces ALL
 ```
 It will then follow that monitor(s) and output the workspaces details in JSON to stdout.
 ```json
@@ -67,7 +68,62 @@ It can be used as a workspaces widget in Eww with config similar to below.
     (workspaces1)
     (other_widget)))
 ```
+### Advanced Usage
+Passing the special argument '_' will output all workspaces, wrapped in an array of monitors. This allows only running a single instance of hyprland-workspaces and simplified eww configuration.
+```
+./hyprland-workspaces _
+```
+Each monitor will have a sub array, workspaces, which will be the same information output as `hyprland-workspaces MONITORNAME`.
+```json
+[
+   {
+      "name": "eDP-1",
+      "workspaces": [
+         {"active": false,"class": "workspace-button w6","id": 6,"name": "6 []"}
+      ]
+   },
+   {
+      "name": "DP-3",
+      "workspaces": [
+         {"active": false,"class": "workspace-button w1","id": 1,"name": "1 "},
+         {"active": true,"class": "workspace-button w3 workspace-active wa3","id": 3,"name": "3 "}
+      ]
+   },
+   {
+      "name": "DP-4",
+      "workspaces": [
+         {"active": false,"class": "workspace-button w2","id": 2,"name": "2 "},
+         {"active": false,"class": "workspace-button w5","id": 5,"name": "5 "}
+      ]
+   }
+]
+```
+This helps avoid repetition within your eww configuration, by using something similar to below.
+```yuck
+(deflisten workspaces "hyprland-workspaces _")
 
+(defwidget workspaceWidget [monitor]
+  (eventbox :onscroll "hyprctl dispatch workspace `echo {} | sed 's/up/+/\' | sed 's/down/-/'`1"
+    (box :class "workspaces"
+      (for i in {workspaces[monitor].workspaces}
+        (button
+          :onclick "hyprctl dispatch workspace ${i.id}"
+          :class "${i.class}"
+          "${i.name}")))))
+
+(defwidget bar0 []
+  (box
+    (workspaceWidget :monitor 0)
+  )
+)
+
+(defwidget bar1 []
+  (box
+    (workspaceWidget :monitor 1)
+  )
+)
+```
+### Classes
 The following classes are output, to provide multiple options for theming your workspaces widget.
 * `workspace-button`: all workspaces will have this class
 * `workspace-active`: only the active workspace will have this class. Will not be present if workspace is active, but focus is on another monitor.

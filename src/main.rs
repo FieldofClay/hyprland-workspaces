@@ -17,7 +17,8 @@ FLAGS:
   -h, --help            Prints help information
 
 ARGS:
-  <MONITOR>             Monitor to track windows/workspaces on or _ to track all monitors
+  <MONITOR>             Monitor to track windows/workspaces on
+                        Use the special keywords ALL to track all monitors or _ to track all monitors and output monitor name information as well
 ";
 
 #[derive(Serialize)]
@@ -28,14 +29,20 @@ struct WorkspaceCustom {
     pub class: String,
 }
 
-fn output(monitor: &str) {
+#[derive(Serialize)]
+struct MonitorCustom {
+    pub name: String,
+    pub workspaces: Vec<WorkspaceCustom>
+}
+
+fn get_workspace_windows(monitor: &str)-> Vec<WorkspaceCustom>  {
     // get all workspaces
     let mut workspaces: Vec<_> = Workspaces::get().expect("unable to get workspaces").into_iter().collect();
     workspaces.sort_by_key(|w| w.id);
 
     //get active workspace
     let active_workspace_id: i32;
-    if monitor == "_" {
+    if monitor == "ALL" {
         active_workspace_id = Workspace::get_active().expect("unable to get active workspace").id;
     } else {
         active_workspace_id = Monitors::get()
@@ -51,13 +58,12 @@ fn output(monitor: &str) {
         .find(|m| m.focused == true)
         .unwrap()
         .name;
-
     let mut out_workspaces: Vec<WorkspaceCustom> = Vec::new();
 
-    for workspace in workspaces.iter().filter(|m| m.monitor == monitor || monitor == "_") {
+    for workspace in workspaces.iter().filter(|m| m.monitor == monitor || monitor == "ALL" || monitor == "_") {
             let mut active = false;
             let mut class = format!("workspace-button w{}",workspace.id);
-            if active_workspace_id == workspace.id && (active_monitor_name == monitor || monitor == "_") {
+            if active_workspace_id == workspace.id && (active_monitor_name == monitor || monitor == "ALL") {
                 class = format!("{} workspace-active wa{}", class, workspace.id);
                 active = true;
             }
@@ -70,7 +76,25 @@ fn output(monitor: &str) {
             };
             out_workspaces.push(ws);
     }
-    println!("{}", json!(out_workspaces).to_string());
+    return out_workspaces;
+}
+
+fn output(monitor: &str) {
+    if monitor == "_" {
+        let monitors = Monitors::get().expect("unable to get monitors");
+        let mut out_monitors: Vec<MonitorCustom> = Vec::new();
+        for m in monitors {
+            let workspaces = get_workspace_windows(&m.name);
+            let mc: MonitorCustom = MonitorCustom {
+                name: m.name,
+                workspaces: workspaces,
+            };
+            out_monitors.push(mc);
+        }
+        println!("{}", json!(out_monitors).to_string());
+    } else {
+        println!("{}", json!(get_workspace_windows(monitor)).to_string());
+    }
 }
 
 
@@ -84,7 +108,7 @@ fn main() -> Result<()> {
     let mon = env::args().nth(1).unwrap();
     if let None = Monitors::get()
         .expect("unable to get monitors")
-        .find(|m| m.name == mon || mon == "_") {
+        .find(|m| m.name == mon || mon == "ALL" || mon == "_") {
             println!("Unable to find monitor {mon}");
             std::process::exit(0);
     }
