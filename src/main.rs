@@ -156,7 +156,11 @@ fn main() -> Result<()> {
         }
     };
     let mon = Arc::new(String::from(args[1].to_string()));
-    if let None = Monitors::get()?
+    if let None = Monitors::get()
+        .unwrap_or_else(|err| {
+            log::error!("Unable to get monitors: {}", err);
+            std::process::exit(1)
+        })
         .find(|m| m.name == mon.to_string() || mon.to_string() == "ALL" || mon.to_string() == "_")
     {
         log::error!("Unable to find monitor {mon}");
