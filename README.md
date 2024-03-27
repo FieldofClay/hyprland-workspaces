@@ -9,6 +9,11 @@ Arch users can install from AUR using your favourite package manager.
 ```
   pikaur -S hyprland-workspaces
 ```
+### Crates.io
+It can be installed directly from [crates.io](https://crates.io) with cargo.
+```
+  cargo install hyprland-workspaces
+```
 ### Building from source
 ```
 git clone https://github.com/FieldofClay/hyprland-workspaces.git
