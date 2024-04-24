@@ -9,6 +9,15 @@ Arch users can install from AUR using your favourite package manager.
 ```
   pikaur -S hyprland-workspaces
 ```
+
+### NixOS
+
+NixOS users can use the [unstable channel](https://nixos.wiki/wiki/Nix_channels) to try or install the package.
+
+```
+nix-shell -p hyprland-workspaces
+```
+
 ### Crates.io
 It can be installed directly from [crates.io](https://crates.io) with cargo.
 ```
