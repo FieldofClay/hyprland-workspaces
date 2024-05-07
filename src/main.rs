@@ -1,6 +1,6 @@
 use flexi_logger::{FileSpec, Logger};
 use hyprland::data::{Monitors, Workspace, Workspaces};
-use hyprland::event_listener::EventListenerMutable as EventListener;
+use hyprland::event_listener::EventListener;
 use hyprland::shared::{HyprData, HyprDataActive, HyprError};
 use hyprland::Result;
 use log;
@@ -48,6 +48,7 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
         active_workspace_id = Workspace::get_active()?.id;
     } else {
         active_workspace_id = Monitors::get()?
+            .into_iter()
             .find(|m| m.name == monitor)
             .ok_or_else(|| {
                 log::error!("No monitor found with name: {}", monitor);
@@ -58,6 +59,7 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
     }
     //active monitor name
     let active_monitor_name = Monitors::get()?
+        .into_iter()
         .find(|m| m.focused == true)
         .ok_or_else(|| {
             log::error!("No active monitor found.");
@@ -161,6 +163,7 @@ fn main() -> Result<()> {
             log::error!("Unable to get monitors: {}", err);
             std::process::exit(1)
         })
+        .into_iter()
         .find(|m| m.name == mon.to_string() || mon.to_string() == "ALL" || mon.to_string() == "_")
     {
         log::error!("Unable to find monitor {mon}");
@@ -172,71 +175,71 @@ fn main() -> Result<()> {
     // Create a event listener
     let mut event_listener = EventListener::new();
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_workspace_change_handler(move |_, _| {
+    event_listener.add_workspace_change_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_workspace_added_handler(move |_, _| {
+    event_listener.add_workspace_added_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_workspace_destroy_handler(move |_, _| {
+    event_listener.add_workspace_destroy_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_workspace_moved_handler(move |_, _| {
+    event_listener.add_workspace_moved_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_monitor_added_handler(move |_, _| {
+    event_listener.add_monitor_added_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_monitor_removed_handler(move |_, _| {
+    event_listener.add_monitor_removed_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_close_handler(move |_, _| {
+    event_listener.add_window_close_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_open_handler(move |_, _| {
+    event_listener.add_window_open_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_active_monitor_change_handler(move |_, _| {
+    event_listener.add_active_monitor_change_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_active_window_change_handler(move |_, _| {
+    event_listener.add_active_window_change_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_close_handler(move |_, _| {
+    event_listener.add_window_close_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_fullscreen_state_change_handler(move |_, _| {
+    event_listener.add_fullscreen_state_change_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_moved_handler(move |_, _| {
+    event_listener.add_window_moved_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_layer_open_handler(move |_, _| {
+    event_listener.add_layer_open_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_layer_closed_handler(move |_, _| {
+    event_listener.add_layer_closed_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_urgent_state_handler(move |_, _| {
+    event_listener.add_urgent_state_handler(move |_| {
         output(&mon_clone);
     });
     let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_title_change_handler(move |_, _| {
+    event_listener.add_window_title_change_handler(move |_| {
         output(&mon_clone);
     });
 
