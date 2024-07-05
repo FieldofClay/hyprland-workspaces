@@ -28,6 +28,7 @@ struct WorkspaceCustom {
     pub name: String,
     pub id: i32,
     pub active: bool,
+    pub occupied: bool,
     pub class: String,
 }
 
@@ -72,6 +73,7 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
         .iter()
         .filter(|m| m.monitor == monitor || monitor == "ALL" || monitor == "_")
     {
+        let occupied = workspace.windows > 0;
         let mut active = false;
         let mut class = format!("workspace-button w{}", workspace.id);
         if active_workspace_id == workspace.id
@@ -85,6 +87,7 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
             name: workspace.name.clone(),
             id: workspace.id,
             active,
+            occupied,
             class,
         };
         out_workspaces.push(ws);
