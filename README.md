@@ -42,7 +42,7 @@ If you wish to get all workspaces across all monitors, pass the special argument
 ```
 It will then follow that monitor(s) and output the workspaces details in JSON to stdout.
 ```json
-[{"active":false,"class":"workspace-button w1","id":1,"name":"1: "},{"active":false,"class":"workspace-button w2","id":2,"name":"2: "},{"active":true,"class":"workspace-button w4 workspace-active wa4","id":4,"name":"4: "}]
+[{"active":false,"class":"workspace-button w1","id":1,"name":"1: ","occupied":false},{"active":false,"class":"workspace-button w2","id":2,"name":"2: ","occupied":false},{"active":true,"class":"workspace-button w4 workspace-active wa4","id":4,"name":"4: ","occupied":true}]
 ```
 You can get the names of your monitors by running:
 ```
@@ -93,21 +93,21 @@ Each monitor will have a sub array, workspaces, which will be the same informati
    {
       "name": "eDP-1",
       "workspaces": [
-         {"active": false,"class": "workspace-button w6","id": 6,"name": "6 []"}
+         {"active": false,"class": "workspace-button w6","id": 6,"name": "6 []","occupied":true}
       ]
    },
    {
       "name": "DP-3",
       "workspaces": [
-         {"active": false,"class": "workspace-button w1","id": 1,"name": "1 "},
-         {"active": true,"class": "workspace-button w3 workspace-active wa3","id": 3,"name": "3 "}
+         {"active": false,"class": "workspace-button w1","id": 1,"name": "1 ","occupied":false},
+         {"active": true,"class": "workspace-button w3 workspace-active wa3","id": 3,"name": "3 ","occupied":true}
       ]
    },
    {
       "name": "DP-4",
       "workspaces": [
-         {"active": false,"class": "workspace-button w2","id": 2,"name": "2 "},
-         {"active": false,"class": "workspace-button w5","id": 5,"name": "5 "}
+         {"active": false,"class": "workspace-button w2","id": 2,"name": "2 ","occupied":false},
+         {"active": false,"class": "workspace-button w5","id": 5,"name": "5 ","occupied":false}
       ]
    }
 ]
@@ -137,6 +137,10 @@ This helps avoid repetition within your eww configuration, by using something si
   )
 )
 ```
+
+### Occupied
+`occupied` will be `true` if there are any windows on that particular workspace. You can use this to display empty and occupied workspaces in a different way.
+
 ### Classes
 The following classes are output, to provide multiple options for theming your workspaces widget.
 * `workspace-button`: all workspaces will have this class
