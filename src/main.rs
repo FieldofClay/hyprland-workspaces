@@ -35,22 +35,22 @@ struct MonitorCustom {
 }
 
 fn fill_empty(workspaces: Vec<WorkspaceCustom>, workspaces_count: i8) -> Vec<WorkspaceCustom> {
-  let mut res = Vec::new();
-  let mut workspace_iter = workspaces.into_iter().peekable();
+  let mut res: Vec<WorkspaceCustom> = vec![];
+  let mut workspace_iter = workspaces.iter().peekable();
   let mut current_id: i8 = 1;
 
   while current_id <= workspaces_count {
       if let Some(w) = workspace_iter.peek() {
-          if w.id == current_id as i32 {
-            res.push(workspace_iter.next().unwrap());
+          if current_id as i32 == w.id {
+              res.push(workspace_iter.next().unwrap().clone());
           } else {
-            res.push(WorkspaceCustom {
-                name: current_id.to_string(),
-                id: current_id.into(),
-                active: false,
-                occupied: false,
-                class: "workspace-unoccupied wU".to_string(),
-            });
+              res.push(WorkspaceCustom {
+                  name: current_id.to_string(),
+                  id: current_id.into(),
+                  active: false,
+                  occupied: false,
+                  class: "workspace-unoccupied wU".to_string(),
+              });
           }
       } else {
           res.push(WorkspaceCustom {
@@ -63,7 +63,6 @@ fn fill_empty(workspaces: Vec<WorkspaceCustom>, workspaces_count: i8) -> Vec<Wor
       }
       current_id += 1;
   }
-
   res
 }
 
@@ -89,7 +88,7 @@ fn get_workspace_windows(monitor: &str, workspaces_count: Option<i8>) -> Result<
             .id;
     }
     //active monitor name
-    let active_monitor_name = Monitors::get()?
+    let active_monitor_name: String = Monitors::get()?
         .into_iter()
         .find(|m| m.focused == true)
         .ok_or_else(|| {
@@ -122,12 +121,15 @@ fn get_workspace_windows(monitor: &str, workspaces_count: Option<i8>) -> Result<
         out_workspaces.push(ws);
     }
 
+    out_workspaces.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
+
     if let Some(wc) = workspaces_count {
         out_workspaces = fill_empty(out_workspaces, wc * Monitors::get()?.into_iter().len() as i8);
 
         let monitors: Monitors = Monitors::get()?;    
-        let mon_index = monitors.iter().position(|m| m.name == monitor).unwrap_or(0);
+        let mon_index = monitors.iter().rev().position(|m| m.name == monitor).unwrap_or(9999); // Don't know why the monitor ids are reversed vs `hyprctl monitors` but this is the only way this will work
         let mon_count = monitors.iter().len();
+
 
         let sec_size = out_workspaces.len() / mon_count;
         let start = mon_index * sec_size;
@@ -138,10 +140,9 @@ fn get_workspace_windows(monitor: &str, workspaces_count: Option<i8>) -> Result<
         };
 
         out_workspaces = out_workspaces[start..end].to_vec();
-
+      
     }
 
-    out_workspaces.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
     return Ok(out_workspaces)
 }
 
