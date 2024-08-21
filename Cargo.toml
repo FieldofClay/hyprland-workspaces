@@ -6,7 +6,7 @@ repository = "https://github.com/FieldofClay/hyprland-workspaces"
 readme = "README.md"
 keywords = ["hyprland", "eww"]
 categories = ["command-line-utilities"]
-version = "2.0.1"
+version = "2.1.0"
 edition = "2021"
 license = "MIT"
 
@@ -18,3 +18,4 @@ serde_json = "1.0"
 serde = "1.0"
 flexi_logger = "0.28"
 log = "0.4"
+clap = { version = "4.5.16", features = ["derive"] }
