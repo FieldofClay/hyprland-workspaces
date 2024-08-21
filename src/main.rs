@@ -127,7 +127,7 @@ fn get_workspace_windows(monitor: &str, workspaces_count: Option<i8>) -> Result<
         out_workspaces = fill_empty(out_workspaces, wc * Monitors::get()?.into_iter().len() as i8);
 
         let monitors: Monitors = Monitors::get()?;    
-        let mon_index = monitors.iter().rev().position(|m| m.name == monitor).unwrap_or(9999); // Don't know why the monitor ids are reversed vs `hyprctl monitors` but this is the only way this will work
+        let mon_index = monitors.iter().position(|m| m.name == monitor).unwrap_or(0); // Potential issue, sometimes need to be reversed, sometimes not
         let mon_count = monitors.iter().len();
 
 
