@@ -1,3 +1,4 @@
+use clap::Parser;
 use flexi_logger::{FileSpec, Logger};
 use hyprland::data::{Monitors, Workspace, Workspaces};
 use hyprland::event_listener::EventListener;
@@ -6,28 +7,24 @@ use hyprland::Result;
 use log;
 use serde::Serialize;
 use serde_json::json;
-use std::env;
 use std::sync::Arc;
 
-const HELP: &str = "\
-hyprland-workspaces: a multi monitor aware hyprland workspaces json widget generator for eww.
+#[derive(Parser, Debug)]
+#[command(version = "2.1.0", about = "A multi monitor aware hyprland workspaces json widget generator for eww.", long_about = None)]
+struct Args {
+  // Specify the number of workspaces per monitor
+  #[arg(help = "Specify the number of workspaces per monitor", short ='w', long = "workspaces", default_value = None)]
+  workspace_count: Option<i8>,
 
-USAGE:
-  hyprland-workspaces MONITOR
-
-FLAGS:
-  -h, --help            Prints help information
-
-ARGS:
-  <MONITOR>             Monitor to track windows/workspaces on
-                        Use the special keywords ALL to track all monitors or _ to track all monitors and output monitor name information as well
-";
+  monitor: String
+}
 
 #[derive(Serialize)]
 struct WorkspaceCustom {
     pub name: String,
     pub id: i32,
     pub active: bool,
+    pub occupied: bool,
     pub class: String,
 }
 
@@ -37,7 +34,40 @@ struct MonitorCustom {
     pub workspaces: Vec<WorkspaceCustom>,
 }
 
-fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
+fn fill_empty(workspaces: Vec<WorkspaceCustom>, workspaces_count: i8) -> Vec<WorkspaceCustom> {
+  let mut res = Vec::new();
+  let mut workspace_iter = workspaces.into_iter().peekable();
+  let mut current_id: i8 = 1;
+
+  while current_id <= workspaces_count {
+      if let Some(w) = workspace_iter.peek() {
+          if w.id == current_id as i32 {
+            res.push(workspace_iter.next().unwrap());
+          } else {
+            res.push(WorkspaceCustom {
+                name: current_id.to_string(),
+                id: current_id.into(),
+                active: false,
+                occupied: false,
+                class: "workspace-unoccupied wU".to_string(),
+            });
+          }
+      } else {
+          res.push(WorkspaceCustom {
+              name: current_id.to_string(),
+              id: current_id.into(),
+              active: false,
+              occupied: false,
+              class: "workspace-unoccupied wU".to_string(),
+          });
+      }
+      current_id += 1;
+  }
+
+  res
+}
+
+fn get_workspace_windows(monitor: &str, workspaces_count: Option<i8>) -> Result<Vec<WorkspaceCustom>> {
     // get all workspaces
     let mut workspaces: Vec<_> = Workspaces::get()?.into_iter().collect();
     workspaces.sort_by_key(|w| w.id);
@@ -67,10 +97,10 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
         })?
         .name;
     let mut out_workspaces: Vec<WorkspaceCustom> = Vec::new();
-
+      
     for workspace in workspaces
-        .iter()
-        .filter(|m| m.monitor == monitor || monitor == "ALL" || monitor == "_")
+    .iter()
+    .filter(|m| m.monitor == monitor || monitor == "ALL" || monitor == "_")
     {
         let mut active = false;
         let mut class = format!("workspace-button w{}", workspace.id);
@@ -84,19 +114,26 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
         let ws: WorkspaceCustom = WorkspaceCustom {
             name: workspace.name.clone(),
             id: workspace.id,
+            occupied: true,
             active,
             class,
         };
         out_workspaces.push(ws);
     }
+
+    if let Some(wc) = workspaces_count {
+        out_workspaces = fill_empty(out_workspaces, wc);
+    }
+        
+    out_workspaces.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
     return Ok(out_workspaces);
 }
 
-fn get_all_advanced() -> Result<Vec<MonitorCustom>> {
+fn get_all_advanced(workspaces_count: Option<i8>) -> Result<Vec<MonitorCustom>> {
     let monitors = Monitors::get()?;
     let mut out_monitors: Vec<MonitorCustom> = Vec::new();
     for m in monitors {
-        let workspaces = get_workspace_windows(&m.name)?;
+        let workspaces = get_workspace_windows(&m.name, workspaces_count)?;
         let mc: MonitorCustom = MonitorCustom {
             name: m.name,
             workspaces: workspaces,
@@ -106,11 +143,11 @@ fn get_all_advanced() -> Result<Vec<MonitorCustom>> {
     Ok(out_monitors)
 }
 
-fn output(monitor: &str) {
+fn output(monitor: &str, workspaces_count: Option<i8>) {
     if monitor == "_" {
         println!(
             "{}",
-            json!(get_all_advanced().unwrap_or_else(|err| {
+            json!(get_all_advanced(workspaces_count).unwrap_or_else(|err| {
                 log::error!("Advanced get failed: {}", err);
                 Vec::new()
             }))
@@ -119,7 +156,7 @@ fn output(monitor: &str) {
     } else {
         println!(
             "{}",
-            json!(get_workspace_windows(monitor).unwrap_or_else(|err| {
+            json!(get_workspace_windows(monitor, workspaces_count).unwrap_or_else(|err| {
                 log::error!("Basic get failed: {}", err);
                 Vec::new()
             }))
@@ -129,12 +166,8 @@ fn output(monitor: &str) {
 }
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-    //check args
-    if args.len() != 2 || args[1].eq("-h") || args[1].eq("--help") {
-        println!("{HELP}");
-        std::process::exit(0);
-    }
+    let args = Args::parse();
+
     let _logger = match Logger::try_with_str("info") {
         Ok(logger) => {
             match logger
@@ -157,7 +190,8 @@ fn main() -> Result<()> {
             std::process::exit(1)
         }
     };
-    let mon = Arc::new(String::from(args[1].to_string()));
+    let mon = Arc::new(String::from(args.monitor));
+    let workspaces_count = Arc::new(args.workspace_count);
     if let None = Monitors::get()
         .unwrap_or_else(|err| {
             log::error!("Unable to get monitors: {}", err);
@@ -171,76 +205,93 @@ fn main() -> Result<()> {
     }
 
     log::info!("Started with arg {}", mon);
-    output(&mon);
+    output(&mon, *workspaces_count);
     // Create a event listener
     let mut event_listener = EventListener::new();
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_workspace_change_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_workspace_added_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_workspace_destroy_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_workspace_moved_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_monitor_added_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_monitor_removed_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_window_close_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_window_open_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_active_monitor_change_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_active_window_change_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_window_close_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_fullscreen_state_change_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_window_moved_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_layer_open_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_layer_closed_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
     let mon_clone = Arc::clone(&mon);
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     event_listener.add_urgent_state_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
+    let workspaces_count_clone = Arc::clone(&workspaces_count);
     let mon_clone = Arc::clone(&mon);
     event_listener.add_window_title_change_handler(move |_| {
-        output(&mon_clone);
+        output(&mon_clone, *workspaces_count_clone);
     });
 
     event_listener.start_listener()
