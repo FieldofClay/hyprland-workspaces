@@ -136,6 +136,9 @@ fn get_workspace_windows(monitor: &str, workspaces_count: Option<i8>) -> Result<
         } else {
             start + sec_size
         };
+
+        out_workspaces = out_workspaces[start..end].to_vec();
+
     }
 
     out_workspaces.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
