@@ -122,7 +122,7 @@ fn get_workspace_windows(monitor: &str, workspaces_count: Option<i8>) -> Result<
     }
 
     if let Some(wc) = workspaces_count {
-        out_workspaces = fill_empty(out_workspaces, wc);
+        out_workspaces = fill_empty(out_workspaces, wc * Monitors::get()?.into_iter().len() as i8);
     }
         
     out_workspaces.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
