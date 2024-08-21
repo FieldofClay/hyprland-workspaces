@@ -19,7 +19,7 @@ struct Args {
   monitor: String
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct WorkspaceCustom {
     pub name: String,
     pub id: i32,
@@ -71,6 +71,7 @@ fn get_workspace_windows(monitor: &str, workspaces_count: Option<i8>) -> Result<
     // get all workspaces
     let mut workspaces: Vec<_> = Workspaces::get()?.into_iter().collect();
     workspaces.sort_by_key(|w| w.id);
+
 
     //get active workspace
     let active_workspace_id: i32;
@@ -124,9 +125,23 @@ fn get_workspace_windows(monitor: &str, workspaces_count: Option<i8>) -> Result<
     if let Some(wc) = workspaces_count {
         out_workspaces = fill_empty(out_workspaces, wc * Monitors::get()?.into_iter().len() as i8);
     }
-        
+
+    let monitors: Monitors = Monitors::get()?;    
+    let mon_index = monitors.iter().position(|m| m.name == monitor).unwrap_or(0);
+    let mon_count = monitors.iter().len();
+
+    let sec_size = out_workspaces.len() / mon_count;
+    let start = mon_index * sec_size;
+    let end = if mon_index == mon_count - 1 {
+        out_workspaces.len() // Remaining workspaces
+    } else {
+        start + sec_size
+    };
+
+    out_workspaces = out_workspaces[start..end].to_vec();
+
     out_workspaces.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
-    return Ok(out_workspaces);
+    return Ok(out_workspaces)
 }
 
 fn get_all_advanced(workspaces_count: Option<i8>) -> Result<Vec<MonitorCustom>> {
