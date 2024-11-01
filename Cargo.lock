@@ -103,23 +103,16 @@ dependencies = [
 
 [[package]]
 name = "flexi_logger"
-version = "0.28.5"
+version = "0.29.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cca927478b3747ba47f98af6ba0ac0daea4f12d12f55e9104071b3dc00276310"
+checksum = "0efeb583f79d5fe02cafae3cbed342daa47c68e9a4e9b2d60fd4fb678cc05710"
 dependencies = [
  "chrono",
- "glob",
  "log",
  "nu-ansi-term",
  "regex",
  "thiserror",
 ]
-
-[[package]]
-name = "glob"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "hyprland"
