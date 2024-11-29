@@ -78,7 +78,7 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
     {
         let mut active = false;
         let on_screen = on_screen_workspaces.contains(&workspace.id);
-        let mut class = format!("workspace-button w{}{}", workspace.id, if on_screen {" on-screen"} else {""});
+        let mut class = format!("workspace-button w{}{}", workspace.id, if on_screen {" workspace-on-screen"} else {""});
         if (active_workspace_id == workspace.id)
             && (active_monitor_name == monitor || monitor == "ALL")
         {
