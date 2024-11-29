@@ -93,21 +93,21 @@ Each monitor will have a sub array, workspaces, which will be the same informati
    {
       "name": "eDP-1",
       "workspaces": [
-         {"active": false,"class": "workspace-button w6","id": 6,"name": "6 []"}
+         {"active": false,"class": "workspace-button w6 workspace-on-screen","id": 6,"name": "6 []"}
       ]
    },
    {
       "name": "DP-3",
       "workspaces": [
          {"active": false,"class": "workspace-button w1","id": 1,"name": "1 "},
-         {"active": true,"class": "workspace-button w3 workspace-active wa3","id": 3,"name": "3 "}
+         {"active": true,"class": "workspace-button w3 workspace-active wa3 workspace-on-screen","id": 3,"name": "3 "}
       ]
    },
    {
       "name": "DP-4",
       "workspaces": [
          {"active": false,"class": "workspace-button w2","id": 2,"name": "2 "},
-         {"active": false,"class": "workspace-button w5","id": 5,"name": "5 "}
+         {"active": false,"class": "workspace-button w5 workspace-on-screen","id": 5,"name": "5 "}
       ]
    }
 ]
@@ -143,3 +143,4 @@ The following classes are output, to provide multiple options for theming your w
 * `workspace-active`: only the active workspace will have this class. Will not be present if workspace is active, but focus is on another monitor.
 * `w<WORKSPACEID>`: Each workspace will have this class to allow for unique CSS per workspace.
 * `wa<WORKSPACEID>`: The active workspace will have this to allow for unique CSS per workspace, when it is active. Like `workspace-active`, this does not appear when the focus is on another monitor.
+* `workspace-on-screen`: a workspace will have this class if it's currently displayed on a monitor.
