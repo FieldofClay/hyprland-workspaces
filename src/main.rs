@@ -28,6 +28,7 @@ struct WorkspaceCustom {
     pub name: String,
     pub id: i32,
     pub active: bool,
+    pub on_screen: bool,
     pub class: String,
 }
 
@@ -66,6 +67,9 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
             HyprError::NotOkDispatch("No active monitor found".to_string())
         })?
         .name;
+    let on_screen_workspaces: Vec<i32> = Monitors::get()?
+        .into_iter()
+        .map(|m| m.active_workspace.id).collect();
     let mut out_workspaces: Vec<WorkspaceCustom> = Vec::new();
 
     for workspace in workspaces
@@ -73,8 +77,9 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
         .filter(|m| m.monitor == monitor || monitor == "ALL" || monitor == "_")
     {
         let mut active = false;
-        let mut class = format!("workspace-button w{}", workspace.id);
-        if active_workspace_id == workspace.id
+        let on_screen = on_screen_workspaces.contains(&workspace.id);
+        let mut class = format!("workspace-button w{}{}", workspace.id, if on_screen {" workspace-on-screen"} else {""});
+        if (active_workspace_id == workspace.id)
             && (active_monitor_name == monitor || monitor == "ALL")
         {
             class = format!("{} workspace-active wa{}", class, workspace.id);
@@ -85,6 +90,7 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
             name: workspace.name.clone(),
             id: workspace.id,
             active,
+            on_screen,
             class,
         };
         out_workspaces.push(ws);
