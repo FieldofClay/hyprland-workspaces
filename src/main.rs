@@ -82,7 +82,7 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
         if (active_workspace_id == workspace.id)
             && (active_monitor_name == monitor || monitor == "ALL")
         {
-            class = format!("{} workspace-active wa{}", class, workspace.id);
+            class = format!("workspace-active wa{}", workspace.id);
             active = true;
         }
 
