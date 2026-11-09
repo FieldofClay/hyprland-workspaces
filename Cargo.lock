@@ -86,7 +86,7 @@ dependencies = [
 
 [[package]]
 name = "hyprland-workspaces"
-version = "2.0.4"
+version = "3.0.0"
 dependencies = [
  "flexi_logger",
  "log",
