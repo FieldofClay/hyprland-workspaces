@@ -1,13 +1,44 @@
 use flexi_logger::{FileSpec, Logger};
-use hyprland::data::{Monitors, Workspace, Workspaces};
-use hyprland::event_listener::EventListener;
-use hyprland::shared::{HyprData, HyprDataActive, HyprError};
-use hyprland::Result;
 use log;
-use serde::Serialize;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::env;
-use std::sync::Arc;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::os::unix::net::UnixStream;
+use std::path::PathBuf;
+
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+
+const REFRESH_EVENTS: &[&str] = &[
+    "workspace",
+    "workspacev2",
+    "createworkspace",
+    "createworkspacev2",
+    "destroyworkspace",
+    "destroyworkspacev2",
+    "moveworkspace",
+    "moveworkspacev2",
+    "renameworkspace",
+    "monitoradded",
+    "monitoraddedv2",
+    "monitorremoved",
+    "monitorremovedv2",
+    "focusedmon",
+    "focusedmonv2",
+    "openwindow",
+    "closewindow",
+    "movewindow",
+    "movewindowv2",
+    "activewindow",
+    "activewindowv2",
+    "fullscreen",
+    "openlayer",
+    "closelayer",
+    "urgent",
+    "windowtitle",
+    "windowtitlev2",
+];
 
 const HELP: &str = "\
 hyprland-workspaces: a multi monitor aware hyprland workspaces json widget generator for eww.
@@ -38,37 +69,78 @@ struct MonitorCustom {
     pub workspaces: Vec<WorkspaceCustom>,
 }
 
+#[derive(Deserialize)]
+struct Workspace {
+    id: i32,
+    name: String,
+    monitor: String,
+}
+
+#[derive(Deserialize)]
+struct WorkspaceRef {
+    id: i32,
+}
+
+#[derive(Deserialize)]
+struct Monitor {
+    name: String,
+    focused: bool,
+    #[serde(rename = "activeWorkspace")]
+    active_workspace: WorkspaceRef,
+}
+
+fn socket_path(socket: &str) -> Result<PathBuf> {
+    let sig = env::var("HYPRLAND_INSTANCE_SIGNATURE")
+        .map_err(|_| "HYPRLAND_INSTANCE_SIGNATURE not set, is Hyprland running?")?;
+    if let Ok(runtime_dir) = env::var("XDG_RUNTIME_DIR") {
+        let path = PathBuf::from(runtime_dir).join("hypr").join(&sig).join(socket);
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+    Ok(PathBuf::from("/tmp/hypr").join(sig).join(socket))
+}
+
+fn query<T: DeserializeOwned>(cmd: &str) -> Result<T> {
+    let mut stream = UnixStream::connect(socket_path(".socket.sock")?)?;
+    stream.write_all(format!("j/{cmd}").as_bytes())?;
+    let mut response = String::new();
+    stream.read_to_string(&mut response)?;
+    Ok(serde_json::from_str(&response)?)
+}
+
 fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
     // get all workspaces
-    let mut workspaces: Vec<_> = Workspaces::get()?.into_iter().collect();
+    let mut workspaces: Vec<Workspace> = query("workspaces")?;
     workspaces.sort_by_key(|w| w.id);
+    let monitors: Vec<Monitor> = query("monitors")?;
 
     //get active workspace
     let active_workspace_id: i32;
     if monitor == "ALL" {
-        active_workspace_id = Workspace::get_active()?.id;
+        active_workspace_id = query::<WorkspaceRef>("activeworkspace")?.id;
     } else {
-        active_workspace_id = Monitors::get()?
-            .into_iter()
+        active_workspace_id = monitors
+            .iter()
             .find(|m| m.name == monitor)
             .ok_or_else(|| {
                 log::error!("No monitor found with name: {}", monitor);
-                HyprError::NotOkDispatch("No monitor found".to_string())
+                "No monitor found"
             })?
             .active_workspace
             .id;
     }
     //active monitor name
-    let active_monitor_name = Monitors::get()?
-        .into_iter()
-        .find(|m| m.focused == true)
+    let active_monitor_name = &monitors
+        .iter()
+        .find(|m| m.focused)
         .ok_or_else(|| {
             log::error!("No active monitor found.");
-            HyprError::NotOkDispatch("No active monitor found".to_string())
+            "No active monitor found"
         })?
         .name;
-    let on_screen_workspaces: Vec<i32> = Monitors::get()?
-        .into_iter()
+    let on_screen_workspaces: Vec<i32> = monitors
+        .iter()
         .map(|m| m.active_workspace.id).collect();
     let mut out_workspaces: Vec<WorkspaceCustom> = Vec::new();
 
@@ -99,7 +171,7 @@ fn get_workspace_windows(monitor: &str) -> Result<Vec<WorkspaceCustom>> {
 }
 
 fn get_all_advanced() -> Result<Vec<MonitorCustom>> {
-    let monitors = Monitors::get()?;
+    let monitors: Vec<Monitor> = query("monitors")?;
     let mut out_monitors: Vec<MonitorCustom> = Vec::new();
     for m in monitors {
         let workspaces = get_workspace_windows(&m.name)?;
@@ -112,25 +184,23 @@ fn get_all_advanced() -> Result<Vec<MonitorCustom>> {
     Ok(out_monitors)
 }
 
-fn output(monitor: &str) {
-    if monitor == "_" {
-        println!(
-            "{}",
-            json!(get_all_advanced().unwrap_or_else(|err| {
-                log::error!("Advanced get failed: {}", err);
-                Vec::new()
-            }))
-            .to_string()
-        );
+fn output(monitor: &str, last: &mut String) {
+    let current = if monitor == "_" {
+        json!(get_all_advanced().unwrap_or_else(|err| {
+            log::error!("Advanced get failed: {}", err);
+            Vec::new()
+        }))
+        .to_string()
     } else {
-        println!(
-            "{}",
-            json!(get_workspace_windows(monitor).unwrap_or_else(|err| {
-                log::error!("Basic get failed: {}", err);
-                Vec::new()
-            }))
-            .to_string()
-        );
+        json!(get_workspace_windows(monitor).unwrap_or_else(|err| {
+            log::error!("Basic get failed: {}", err);
+            Vec::new()
+        }))
+        .to_string()
+    };
+    if current != *last {
+        println!("{current}");
+        *last = current;
     }
 }
 
@@ -163,91 +233,30 @@ fn main() -> Result<()> {
             std::process::exit(1)
         }
     };
-    let mon = Arc::new(String::from(args[1].to_string()));
-    if let None = Monitors::get()
-        .unwrap_or_else(|err| {
-            log::error!("Unable to get monitors: {}", err);
-            std::process::exit(1)
-        })
-        .into_iter()
-        .find(|m| m.name == mon.to_string() || mon.to_string() == "ALL" || mon.to_string() == "_")
+    let mon = args[1].to_string();
+    let monitors: Vec<Monitor> = query("monitors").unwrap_or_else(|err| {
+        log::error!("Unable to get monitors: {}", err);
+        std::process::exit(1)
+    });
+    if let None = monitors
+        .iter()
+        .find(|m| m.name == mon || mon == "ALL" || mon == "_")
     {
         log::error!("Unable to find monitor {mon}");
         std::process::exit(0);
     }
 
     log::info!("Started with arg {}", mon);
-    output(&mon);
+    let mut last = String::new();
+    output(&mon, &mut last);
     // Create a event listener
-    let mut event_listener = EventListener::new();
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_workspace_change_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_workspace_added_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_workspace_destroy_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_workspace_moved_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_monitor_added_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_monitor_removed_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_close_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_open_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_active_monitor_change_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_active_window_change_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_close_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_fullscreen_state_change_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_moved_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_layer_open_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_layer_closed_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_urgent_state_handler(move |_| {
-        output(&mon_clone);
-    });
-    let mon_clone = Arc::clone(&mon);
-    event_listener.add_window_title_change_handler(move |_| {
-        output(&mon_clone);
-    });
-
-    event_listener.start_listener()
+    let events = BufReader::new(UnixStream::connect(socket_path(".socket2.sock")?)?);
+    for line in events.lines() {
+        let line = line?;
+        let event = line.split_once(">>").map_or(line.as_str(), |(name, _)| name);
+        if REFRESH_EVENTS.contains(&event) {
+            output(&mon, &mut last);
+        }
+    }
+    Err("Hyprland event socket closed".into())
 }
